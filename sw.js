@@ -3,7 +3,7 @@
  * REMINDER: Bump CACHE_NAME version on each release so clients get updates immediately!
  */
 
-const CACHE_NAME = 'training-planner-shell-v2';
+const CACHE_NAME = 'training-planner-shell-v3';
 
 const APP_SHELL_ASSETS = [
   './',
