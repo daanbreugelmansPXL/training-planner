@@ -1,9 +1,9 @@
 /**
  * Service Worker for Training Planner PWA
- * Provides full offline operation with cache-first strategy for app shell
+ * REMINDER: Bump CACHE_NAME version on each release so clients get updates immediately!
  */
 
-const CACHE_NAME = 'training-planner-shell-v1';
+const CACHE_NAME = 'training-planner-shell-v2';
 
 const APP_SHELL_ASSETS = [
   './',
@@ -23,7 +23,6 @@ const APP_SHELL_ASSETS = [
 self.addEventListener('install', (event) => {
   event.waitUntil(
     caches.open(CACHE_NAME).then((cache) => {
-      console.log('[SW] Caching app shell assets');
       return cache.addAll(APP_SHELL_ASSETS);
     }).then(() => self.skipWaiting())
   );
@@ -35,7 +34,6 @@ self.addEventListener('activate', (event) => {
       return Promise.all(
         keys.map((key) => {
           if (key !== CACHE_NAME) {
-            console.log('[SW] Purging old cache:', key);
             return caches.delete(key);
           }
         })
@@ -45,13 +43,12 @@ self.addEventListener('activate', (event) => {
 });
 
 self.addEventListener('fetch', (event) => {
-  // Only handle GET requests
   if (event.request.method !== 'GET') return;
 
   event.respondWith(
     caches.match(event.request).then((cachedResponse) => {
       if (cachedResponse) {
-        // Return cached asset immediately; optionally revalidate in background
+        // Cache hit: return immediately, revalidate in background
         fetch(event.request).then((networkResponse) => {
           if (networkResponse && networkResponse.status === 200) {
             caches.open(CACHE_NAME).then((cache) => {
@@ -59,12 +56,12 @@ self.addEventListener('fetch', (event) => {
             });
           }
         }).catch(() => {
-          // Offline, ignore network error
+          // Offline, ignore
         });
         return cachedResponse;
       }
 
-      // Not in cache, try network and cache response
+      // Cache miss: fetch from network and store in cache
       return fetch(event.request).then((networkResponse) => {
         if (!networkResponse || networkResponse.status !== 200 || networkResponse.type !== 'basic') {
           return networkResponse;
@@ -75,7 +72,6 @@ self.addEventListener('fetch', (event) => {
         });
         return networkResponse;
       }).catch(() => {
-        // Fallback to index.html for navigation requests when offline
         if (event.request.mode === 'navigate') {
           return caches.match('./index.html');
         }

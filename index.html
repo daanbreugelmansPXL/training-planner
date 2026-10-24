@@ -3,22 +3,22 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-  <meta name="description" content="Personal training planner & workout logbook for Muay Thai and Strength">
-  <meta name="theme-color" content="#0c0f14">
+  <meta name="description" content="Personal training planner and workout logbook for Muay Thai & Strength">
+  <meta name="theme-color" content="#0A0A0B">
 
-  <!-- iOS PWA meta tags -->
+  <!-- iOS PWA Meta Tags -->
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <meta name="apple-mobile-web-app-title" content="Training">
   <link rel="apple-touch-icon" sizes="180x180" href="icons/apple-touch-icon.png">
 
-  <!-- Manifest -->
+  <!-- Manifest & Icons -->
   <link rel="manifest" href="manifest.webmanifest">
   <link rel="icon" type="image/svg+xml" href="icons/icon.svg">
   <link rel="icon" type="image/png" sizes="192x192" href="icons/icon-192.png">
 
-  <title>Training Planner</title>
+  <title>Training</title>
   <link rel="stylesheet" href="styles.css">
 </head>
 <body class="theme-auto">
@@ -26,485 +26,230 @@
     
     <!-- Top Header -->
     <header class="app-header">
-      <div class="header-left">
-        <div class="brand">
-          <span class="brand-icon">⚡</span>
-          <span class="brand-name">TRAINING</span>
+      <div class="header-inner">
+        <div class="brand-title">
+          <span class="brand-accent-dot"></span>
+          <span>Training</span>
         </div>
-        <nav class="header-desktop-nav" aria-label="Desktop main navigation">
-          <button id="desk-nav-planner" class="btn-header-tab active">Plan</button>
-          <button id="desk-nav-progress" class="btn-header-tab">Progress</button>
-          <button id="desk-nav-settings" class="btn-header-tab">Settings</button>
+
+        <!-- Desktop Navigation Tabs -->
+        <nav class="header-nav" aria-label="Desktop Navigation">
+          <button id="desk-tab-plan" class="nav-link active" data-tab="plan">Plan</button>
+          <button id="desk-tab-templates" class="nav-link" data-tab="templates">Templates</button>
+          <button id="desk-tab-progress" class="nav-link" data-tab="progress">Progress</button>
         </nav>
-      </div>
 
-      <div class="header-center">
-        <!-- Week Navigator -->
-        <div class="week-nav" role="navigation" aria-label="Week navigation">
-          <button id="btn-prev-week" class="btn-icon" aria-label="Previous week">‹</button>
-          <button id="btn-current-week-label" class="btn-week-label" title="Jump to current week">
-            <span id="week-display-label">Week --</span>
-            <span id="week-year-label" class="week-year">2026</span>
-          </button>
-          <button id="btn-next-week" class="btn-icon" aria-label="Next week">›</button>
-        </div>
-      </div>
-
-      <div class="header-right">
-        <!-- Plan Switcher: 3-day vs 2-day fallback -->
-        <div class="plan-toggle-group" role="radiogroup" aria-label="Weekly plan selection">
-          <button id="plan-btn-3day" class="plan-btn active" role="radio" aria-checked="true" title="Standard 3-Day Strength Plan">
-            3-Day
-          </button>
-          <button id="plan-btn-2day" class="plan-btn" role="radio" aria-checked="false" title="2-Day Fallback Plan (busy/fatigue)">
-            2-Day
+        <div class="header-actions">
+          <button id="btn-open-settings" class="btn-icon" aria-label="Settings" title="Settings">
+            <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
           </button>
         </div>
-
-        <button id="btn-rules-info" class="btn-icon header-action-btn" aria-label="Training Rules & Progression" title="Training Rules">
-          📋
-        </button>
       </div>
     </header>
 
-    <!-- Backup Reminder Banner -->
-    <aside id="backup-reminder-banner" class="backup-banner hidden" role="alert">
-      <div class="backup-banner-content">
-        <span class="backup-icon">⚠️</span>
-        <div class="backup-text">
-          <strong>Backup Reminder</strong>
-          <span>No backup exported in over 14 days. Save your workout history!</span>
-        </div>
-      </div>
-      <div class="backup-actions">
-        <button id="banner-btn-export" class="btn-secondary btn-sm">Export Now</button>
-        <button id="banner-btn-dismiss" class="btn-icon btn-sm" aria-label="Dismiss banner">✕</button>
-      </div>
-    </aside>
-
-    <!-- Main View Content Area -->
-    <main id="main-content" class="main-content">
+    <!-- Main Viewport Scroll Area -->
+    <main class="main-viewport" id="main-scroll-viewport">
       
-      <!-- TAB 1: PLANNER & WORKOUT VIEW -->
-      <section id="tab-planner" class="tab-view active" role="tabpanel" aria-labelledby="nav-planner">
-        
-        <!-- Today Action Banner -->
-        <div id="today-jump-banner" class="today-jump-banner hidden">
-          <div class="today-banner-info">
-            <span class="today-badge">TODAY</span>
-            <span id="today-banner-title">Strength A</span>
-          </div>
-          <button id="btn-jump-today" class="btn-primary btn-sm">Start Today's Workout →</button>
-        </div>
-
-        <!-- 7-Day Week Strip Overview -->
-        <div class="week-strip-container">
-          <div class="week-strip-header">
-            <h2 class="section-title">Weekly Schedule</h2>
-            <div class="week-strip-status">
-              <span id="week-completion-badge" class="badge">0/6 Done</span>
-            </div>
-          </div>
-          <div id="week-tiles-strip" class="week-tiles-strip" role="tablist" aria-label="Days of the week">
-            <!-- Rendered dynamically by app.js (Mon..Sun) -->
-          </div>
-        </div>
-
-        <!-- Active Day Session View Card -->
-        <div id="active-session-container" class="active-session-container">
-          <!-- Rendered dynamically by app.js -->
-        </div>
-
-      </section>
-
-      <!-- TAB 2: PROGRESS VIEW -->
-      <section id="tab-progress" class="tab-view" role="tabpanel" aria-labelledby="nav-progress" hidden>
-        <div class="progress-container">
-          
-          <!-- Summary Cards -->
-          <div class="progress-summary-grid">
-            <div class="metric-card">
-              <span class="metric-icon">🔥</span>
-              <div class="metric-value" id="streak-count">0</div>
-              <div class="metric-label">Weeks Streak</div>
-            </div>
-            <div class="metric-card">
-              <span class="metric-icon">✅</span>
-              <div class="metric-value" id="total-workouts-count">0</div>
-              <div class="metric-label">Completed Sessions</div>
-            </div>
-            <div class="metric-card">
-              <span class="metric-icon">🥊</span>
-              <div class="metric-value" id="muaythai-sessions-count">0</div>
-              <div class="metric-label">Muay Thai Rounds</div>
-            </div>
-          </div>
-
-          <!-- Weekly Consistency Block (Last 8 Weeks) -->
-          <div class="card consistency-card">
-            <div class="card-header">
-              <h2 class="card-title">Weekly Consistency (Last 8 Weeks)</h2>
-              <span class="text-muted text-sm">Planned vs Done</span>
-            </div>
-            <div id="consistency-tracker" class="consistency-tracker">
-              <!-- Rendered dynamically -->
-            </div>
-          </div>
-
-          <!-- Exercise Strength Progress Chart -->
-          <div class="card chart-card">
-            <div class="card-header chart-card-header">
-              <div>
-                <h2 class="card-title">Exercise Strength Curve</h2>
-                <span class="text-muted text-sm">Track your progressive overload over time</span>
+      <!-- TAB 1: PLAN -->
+      <section id="view-plan" class="view-pane active">
+        <!-- Self-contained Day Strip Wrapper -->
+        <div class="day-strip-wrapper">
+          <div class="day-strip-inner">
+            <div class="week-meta-bar">
+              <div class="week-nav-controls">
+                <button id="btn-prev-week" class="btn-week-step" aria-label="Previous week">‹</button>
+                <span id="label-week-current" class="week-label" title="Jump to current week">Week --</span>
+                <button id="btn-next-week" class="btn-week-step" aria-label="Next week">›</button>
               </div>
-              <div class="chart-controls">
-                <select id="progress-exercise-select" class="select-input" aria-label="Select exercise to view progress">
-                  <!-- Populated dynamically -->
-                </select>
-                <div class="metric-toggle-group" role="group" aria-label="Metric toggle">
-                  <button id="chart-metric-1rm" class="btn-pill active" title="Estimated 1RM using Epley formula">Est. 1RM</button>
-                  <button id="chart-metric-weight" class="btn-pill" title="Top set weight lifted">Top Weight</button>
-                </div>
+              <div class="week-variant-selector" role="radiogroup" aria-label="Plan Variant">
+                <button id="btn-variant-3day" class="btn-plan-toggle active" role="radio" aria-checked="true">3-Day</button>
+                <button id="btn-variant-2day" class="btn-plan-toggle" role="radio" aria-checked="false">2-Day</button>
               </div>
             </div>
 
-            <!-- SVG Chart Canvas Container -->
-            <div id="chart-container" class="chart-svg-container">
-              <!-- Rendered via plain SVG by app.js -->
+            <!-- Horizontally scrollable strip (scrolls only itself) -->
+            <div id="day-strip-container" class="day-strip" role="tablist" aria-label="Days of week">
+              <!-- Dynamically populated 7 days -->
             </div>
-            <div id="chart-tooltip" class="chart-tooltip hidden"></div>
           </div>
+        </div>
 
+        <div class="view-content">
+          <!-- Session Container -->
+          <div id="session-container">
+            <!-- Dynamically rendered session -->
+          </div>
         </div>
       </section>
 
-      <!-- TAB 3: SETTINGS VIEW -->
-      <section id="tab-settings" class="tab-view" role="tabpanel" aria-labelledby="nav-settings" hidden>
-        <div class="settings-container">
-          
-          <!-- Data Backup & Transfer -->
-          <div class="card settings-card">
-            <h2 class="card-title">Data Backup & Transfer</h2>
-            <p class="text-muted text-sm">
-              Your workouts are securely stored locally on this device. Export a backup file to safeguard your logs or transfer them to your PC.
-            </p>
-
-            <div class="backup-meta-info">
-              <span>Last Backup:</span>
-              <strong id="settings-last-backup-date">Never</strong>
-            </div>
-
-            <div class="settings-action-row">
-              <button id="btn-export-data" class="btn-primary">
-                <span>📥</span> Export Backup (.json)
-              </button>
-              <label class="btn-secondary file-upload-btn">
-                <span>📤</span> Import Backup
-                <input type="file" id="file-import-input" accept=".json" class="visually-hidden">
-              </label>
+      <!-- TAB 2: TEMPLATES -->
+      <section id="view-templates" class="view-pane">
+        <div class="view-content">
+          <!-- Templates Index List -->
+          <div id="templates-index-view">
+            <h2 class="session-title" style="font-size: 1.25rem;">Templates</h2>
+            <div id="templates-list-container" class="templates-list">
+              <!-- Dynamically populated template rows -->
             </div>
           </div>
 
-          <!-- Preferences & Units -->
-          <div class="card settings-card">
-            <h2 class="card-title">Preferences</h2>
-            
-            <div class="settings-row">
-              <div class="settings-label-block">
-                <strong>Appearance Theme</strong>
-                <span class="text-muted text-sm">Choose dark, light, or follow system scheme</span>
+          <!-- Template Editor Sub-view -->
+          <div id="template-editor-view" class="template-editor-view">
+            <div class="editor-header-bar">
+              <button id="btn-back-to-templates" class="btn-action-text">‹ Back</button>
+              <h2 id="editor-template-title" class="editor-title">Strength A</h2>
+              <span id="editor-save-indicator" class="editor-autosave-indicator">✓</span>
+            </div>
+
+            <!-- Warm-up Section -->
+            <div class="editor-section">
+              <div class="editor-section-title">Warm-up</div>
+              <div id="editor-warmup-container" class="editor-rows-container"></div>
+              <div class="quick-add-wrap">
+                <input type="text" id="quick-add-warmup" class="input-quick-add" placeholder="Add warm-up drill...">
               </div>
-              <select id="select-theme" class="select-input">
-                <option value="auto">Auto (System)</option>
-                <option value="dark">Dark Theme</option>
-                <option value="light">Light Theme</option>
-              </select>
             </div>
 
-            <div class="settings-row">
-              <div class="settings-label-block">
-                <strong>Weight Units</strong>
-                <span class="text-muted text-sm">Fixed to metric standard for Muay Thai</span>
+            <!-- Main Exercises Section -->
+            <div class="editor-section">
+              <div class="editor-section-title">Main Exercises</div>
+              <div id="editor-main-container" class="editor-rows-container"></div>
+              <div class="quick-add-wrap">
+                <input type="text" id="quick-add-main" class="input-quick-add" placeholder="Add exercise (e.g. Bench press 3x6-10 2min)...">
               </div>
-              <span class="badge badge-static">Kilograms (kg)</span>
+            </div>
+
+            <!-- Cooldown Section -->
+            <div class="editor-section">
+              <div class="editor-section-title">Cooldown</div>
+              <div id="editor-cooldown-container" class="editor-rows-container"></div>
+              <div class="quick-add-wrap">
+                <input type="text" id="quick-add-cooldown" class="input-quick-add" placeholder="Add cooldown stretch...">
+              </div>
+            </div>
+
+            <!-- Reset Template Button -->
+            <div style="margin-top: var(--space-4); display: flex; justify-content: flex-end;">
+              <button id="btn-reset-template" class="btn-action-text" style="color: var(--accent);">Reset to default</button>
             </div>
           </div>
+        </div>
+      </section>
 
-          <!-- Training Principles & Rules -->
-          <div class="card settings-card">
-            <h2 class="card-title">Training Rules & Overload Logic</h2>
-            <p class="text-muted text-sm">
-              Built-in guidelines for weekly recovery, scheduling around Muay Thai, and progressive overload.
-            </p>
-            <button id="btn-open-rules-full" class="btn-secondary btn-block">
-              View Rules & Guidelines Sheet 📋
-            </button>
+      <!-- TAB 3: PROGRESS -->
+      <section id="view-progress" class="view-pane">
+        <div class="view-content">
+          <div class="progress-quiet-row">
+            <span id="progress-streak-label">Streak: 0 wks</span>
+            <span id="progress-total-label">Done: 0 sessions</span>
           </div>
 
-          <!-- Danger Zone -->
-          <div class="card settings-card danger-card">
-            <h2 class="card-title text-danger">Reset All Data</h2>
-            <p class="text-muted text-sm">
-              Wipes all locally saved workout history, schedule overrides, and custom exercise edits.
-            </p>
-            <button id="btn-danger-reset" class="btn-danger">
-              ⚠️ Delete All Data...
-            </button>
+          <div id="progress-exercise-list" class="progress-exercise-list">
+            <!-- Dynamically populated exercise rows with SVG chart dropdown -->
           </div>
-
-          <div class="app-version-footer">
-            <p>Training Planner PWA • Offline Ready • v1.0.0</p>
-          </div>
-
         </div>
       </section>
 
     </main>
 
-    <!-- Floating Rest Timer Pill -->
-    <div id="floating-rest-timer" class="rest-timer-pill hidden" role="region" aria-label="Rest Timer">
-      <div class="timer-drag-handle"></div>
-      <div class="timer-main-info">
-        <span class="timer-label">REST TIMER</span>
-        <span id="timer-countdown" class="timer-digits">02:00</span>
-      </div>
-      <div class="timer-controls">
-        <button id="timer-btn-minus" class="btn-timer-sm" aria-label="Subtract 15 seconds">-15s</button>
-        <button id="timer-btn-toggle" class="btn-timer-primary" aria-label="Pause or resume timer">⏸</button>
-        <button id="timer-btn-plus" class="btn-timer-sm" aria-label="Add 15 seconds">+15s</button>
-        <button id="timer-btn-skip" class="btn-timer-skip" aria-label="Dismiss timer">✕</button>
+    <!-- Rest Timer (Docked compact hairline bar above bottom nav) -->
+    <div id="docked-rest-timer" class="rest-timer-docked" role="region" aria-label="Rest Timer">
+      <div class="rest-timer-inner">
+        <span id="timer-digits" class="timer-countdown">02:00</span>
+        <div class="timer-controls-group">
+          <button id="btn-timer-sub15" class="btn-timer-action">-15s</button>
+          <button id="btn-timer-toggle" class="btn-timer-action">Pause</button>
+          <button id="btn-timer-add15" class="btn-timer-action">+15s</button>
+          <button id="btn-timer-skip" class="btn-timer-action" style="color: var(--text);">Skip</button>
+        </div>
       </div>
     </div>
 
-    <!-- Bottom Navigation Bar -->
-    <nav class="bottom-nav" role="tablist" aria-label="Main navigation">
-      <button id="nav-planner" class="nav-item active" role="tab" aria-selected="true" aria-controls="tab-planner">
-        <span class="nav-icon">📅</span>
-        <span class="nav-label">Plan</span>
+    <!-- Bottom Navigation Bar (Phone) -->
+    <nav class="bottom-tab-bar" aria-label="Mobile Navigation">
+      <button id="tab-btn-plan" class="tab-btn active" data-tab="plan">
+        <svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+        <span>Plan</span>
       </button>
-      <button id="nav-progress" class="nav-item" role="tab" aria-selected="false" aria-controls="tab-progress">
-        <span class="nav-icon">📈</span>
-        <span class="nav-label">Progress</span>
+      <button id="tab-btn-templates" class="tab-btn" data-tab="templates">
+        <svg viewBox="0 0 24 24"><line x1="4" y1="21" x2="4" y2="14"/><line x1="4" y1="10" x2="4" y2="3"/><line x1="12" y1="21" x2="12" y2="12"/><line x1="12" y1="8" x2="12" y2="3"/><line x1="20" y1="21" x2="20" y2="16"/><line x1="20" y1="12" x2="20" y2="3"/><line x1="1" y1="14" x2="7" y2="14"/><line x1="9" y1="8" x2="15" y2="8"/><line x1="17" y1="16" x2="23" y2="16"/></svg>
+        <span>Templates</span>
       </button>
-      <button id="nav-settings" class="nav-item" role="tab" aria-selected="false" aria-controls="tab-settings">
-        <span class="nav-icon">⚙️</span>
-        <span class="nav-label">Settings</span>
+      <button id="tab-btn-progress" class="tab-btn" data-tab="progress">
+        <svg viewBox="0 0 24 24"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
+        <span>Progress</span>
       </button>
     </nav>
 
-    <!-- MODAL: Reschedule Session -->
-    <dialog id="modal-reschedule" class="app-dialog" aria-labelledby="reschedule-modal-title">
-      <div class="dialog-content">
-        <div class="dialog-header">
-          <h2 id="reschedule-modal-title" class="dialog-title">Reschedule Session</h2>
-          <button id="btn-close-reschedule" class="btn-icon" aria-label="Close dialog">✕</button>
+    <!-- Reschedule Bottom Sheet -->
+    <div id="sheet-reschedule" class="bottom-sheet-overlay" role="dialog" aria-modal="true" aria-labelledby="reschedule-title">
+      <div class="bottom-sheet">
+        <div class="sheet-header">
+          <h3 id="reschedule-title" class="sheet-title">Move Session</h3>
+          <button id="btn-close-reschedule" class="btn-action-text">✕</button>
         </div>
-        <p id="reschedule-session-desc" class="text-muted text-sm">Move this workout to another day this week.</p>
-        
-        <div id="reschedule-options-list" class="reschedule-list">
-          <!-- Dynamically populated target days with rule warnings -->
-        </div>
-
-        <div class="dialog-footer">
-          <button id="btn-cancel-reschedule" class="btn-secondary">Cancel</button>
+        <div id="reschedule-days-list" class="reschedule-days-list">
+          <!-- 7 days vertical list -->
         </div>
       </div>
-    </dialog>
+    </div>
 
-    <!-- MODAL: Edit Exercise Sheet -->
-    <dialog id="modal-edit-exercise" class="app-dialog bottom-sheet" aria-labelledby="edit-exercise-title">
-      <div class="dialog-content">
-        <div class="dialog-header">
-          <div class="sheet-title-group">
-            <h2 id="edit-exercise-title" class="dialog-title">Customize Exercise</h2>
-            <span id="edit-exercise-subtitle" class="text-muted text-xs">Original: Barbell back squat</span>
-          </div>
-          <button id="btn-close-edit-modal" class="btn-icon" aria-label="Close">✕</button>
+    <!-- Settings Bottom Sheet -->
+    <div id="sheet-settings" class="bottom-sheet-overlay" role="dialog" aria-modal="true" aria-labelledby="settings-title">
+      <div class="bottom-sheet">
+        <div class="sheet-header">
+          <h3 id="settings-title" class="sheet-title">Settings</h3>
+          <button id="btn-close-settings" class="btn-action-text">✕</button>
         </div>
 
-        <form id="form-edit-exercise" class="edit-form">
-          <div class="form-row form-grid-3">
-            <div class="form-group">
-              <label for="edit-target-sets" class="form-label">Sets</label>
-              <input type="number" id="edit-target-sets" class="text-input" min="1" max="10" required>
-            </div>
-            <div class="form-group">
-              <label for="edit-rep-range" class="form-label">Reps</label>
-              <input type="text" id="edit-rep-range" class="text-input" placeholder="e.g. 6–10" required>
-            </div>
-            <div class="form-group">
-              <label for="edit-rest-seconds" class="form-label">Rest (sec)</label>
-              <input type="number" id="edit-rest-seconds" class="text-input" step="15" min="0" max="600" required>
-            </div>
-          </div>
-
-          <div class="form-group">
-            <label for="edit-personal-tip" class="form-label">Coaching Tip / Notes</label>
-            <input type="text" id="edit-personal-tip" class="text-input" placeholder="Personal technique cue">
-          </div>
-
-          <div class="form-group">
-            <label class="form-label">Replace with Alternative</label>
-            <select id="edit-select-replacement" class="select-input">
-              <option value="">Keep current exercise</option>
-              <!-- Populated dynamically with official alternatives & custom -->
+        <div class="settings-section">
+          <div class="settings-row">
+            <span>Theme</span>
+            <select id="select-theme" style="color: var(--text); padding: 4px 8px; border: 1px solid var(--line-hairline); border-radius: var(--radius-sm); background: var(--bg);">
+              <option value="auto">Auto</option>
+              <option value="dark">Dark</option>
+              <option value="light">Light</option>
             </select>
           </div>
 
-          <div class="form-group">
-            <label for="edit-custom-replace-name" class="form-label">Or Custom Exercise Name</label>
-            <input type="text" id="edit-custom-replace-name" class="text-input" placeholder="e.g. Incline Dumbbell Bench">
+          <div class="settings-row">
+            <span>Units</span>
+            <span style="color: var(--text-muted); font-weight: 600;">Kilograms (kg)</span>
           </div>
 
-          <div class="dialog-actions-vertical">
-            <button type="submit" class="btn-primary btn-block">Save Customization</button>
-            <div class="dialog-button-row">
-              <button type="button" id="btn-hide-exercise" class="btn-secondary text-warning">Hide Exercise</button>
-              <button type="button" id="btn-reset-exercise" class="btn-secondary">Reset to Default</button>
-            </div>
-          </div>
-        </form>
-      </div>
-    </dialog>
-
-    <!-- MODAL: Add Exercise Sheet -->
-    <dialog id="modal-add-exercise" class="app-dialog bottom-sheet" aria-labelledby="add-exercise-title">
-      <div class="dialog-content">
-        <div class="dialog-header">
-          <h2 id="add-exercise-title" class="dialog-title">Add Exercise to Session</h2>
-          <button id="btn-close-add-modal" class="btn-icon" aria-label="Close">✕</button>
-        </div>
-
-        <div class="form-group">
-          <label for="search-exercise-pool" class="form-label">Search Existing Exercises</label>
-          <input type="search" id="search-exercise-pool" class="text-input" placeholder="Search by name (e.g. Deadlift, Row...)">
-        </div>
-
-        <div id="exercise-pool-results" class="exercise-pool-results">
-          <!-- Populated dynamically with matches from plan.js -->
-        </div>
-
-        <div class="divider-text">OR CREATE CUSTOM</div>
-
-        <form id="form-add-custom-exercise">
-          <div class="form-group">
-            <label for="custom-ex-name" class="form-label">Exercise Name</label>
-            <input type="text" id="custom-ex-name" class="text-input" placeholder="e.g. Weighted Pull-ups" required>
-          </div>
-          <div class="form-row form-grid-3">
-            <div class="form-group">
-              <label for="custom-ex-sets" class="form-label">Sets</label>
-              <input type="number" id="custom-ex-sets" class="text-input" value="3" min="1" max="10">
-            </div>
-            <div class="form-group">
-              <label for="custom-ex-reps" class="form-label">Reps</label>
-              <input type="text" id="custom-ex-reps" class="text-input" value="8–12">
-            </div>
-            <div class="form-group">
-              <label for="custom-ex-rest" class="form-label">Rest (s)</label>
-              <input type="number" id="custom-ex-rest" class="text-input" value="90" step="15">
-            </div>
-          </div>
-          <button type="submit" class="btn-primary btn-block">Add Custom Exercise</button>
-        </form>
-      </div>
-    </dialog>
-
-    <!-- MODAL: Rules & Progression Info -->
-    <dialog id="modal-rules-info" class="app-dialog" aria-labelledby="rules-modal-title">
-      <div class="dialog-content dialog-scrollable">
-        <div class="dialog-header">
-          <h2 id="rules-modal-title" class="dialog-title">Training Rules & Overload</h2>
-          <button id="btn-close-rules-modal" class="btn-icon" aria-label="Close">✕</button>
-        </div>
-
-        <div class="rules-modal-body">
-          <h3 class="rules-subtitle">⚡ Progression Principles</h3>
-          <div class="rules-bullet-list">
-            <div class="rule-item">
-              <strong>Overload Rule:</strong> Increase weight only when ALL target sets are completed at the very top of the rep range with pristine technique. (Look for the "Increase next time" badge).
-            </div>
-            <div class="rule-item">
-              <strong>Unilateral Legs:</strong> On Bulgarian split squats and lunges, first build up reps, then add dumbbell weight.
-            </div>
-            <div class="rule-item">
-              <strong>Explosive Power:</strong> On jumps and swings, prioritize bar/body velocity, height, and quiet, soft landing mechanics before loading.
-            </div>
-            <div class="rule-item">
-              <strong>Reps in Reserve:</strong> Maintain 1–2 reps in reserve on all compound lifts. Training to absolute muscular failure is counterproductive for Muay Thai sharpness.
-            </div>
+          <div class="settings-row">
+            <span>Last Backup</span>
+            <span id="label-last-backup" style="color: var(--text-muted); font-size: 13px;">Never</span>
           </div>
 
-          <h3 class="rules-subtitle">🥊 Weekly Scheduling Rules</h3>
-          <div class="rules-bullet-list">
-            <div class="rule-item">
-              <strong>Muay Thai Priority:</strong> Monday and Wednesday (20:00–21:30) club sessions are fixed and never moved.
-            </div>
-            <div class="rule-item">
-              <strong>Strength Spacing:</strong> Keep at least one easy or light day between Strength B and Strength C.
-            </div>
-            <div class="rule-item">
-              <strong>Order of Work:</strong> Heavy strength always precedes conditioning when performed on the same day.
-            </div>
-            <div class="rule-item">
-              <strong>Missed Sessions:</strong> If 1 strength day is missed, shift it to the next free day. If 2 are missed, toggle to the 2-Day Fallback plan for the week.
-            </div>
-            <div class="rule-item">
-              <strong>Time Crunch:</strong> Keep the first 3–4 key compound lifts; skip accessories and conditioning finishers first.
-            </div>
-            <div class="rule-item">
-              <strong>Aerobic Base:</strong> No "short version". If tight on time, move the session or skip it that week.
-            </div>
+          <div style="display: flex; gap: var(--space-2); margin-top: var(--space-2);">
+            <button id="btn-export-backup" class="btn-action-text" style="flex: 1;">Export Data</button>
+            <label class="btn-action-text" style="flex: 1; text-align: center; cursor: pointer;">
+              Import Data
+              <input type="file" id="input-import-file" accept=".json" style="display: none;">
+            </label>
           </div>
-        </div>
 
-        <div class="dialog-footer">
-          <button id="btn-dismiss-rules" class="btn-primary btn-block">Got It</button>
+          <div style="margin-top: var(--space-3);">
+            <button id="btn-reset-all-templates" class="btn-action-text" style="width: 100%;">Reset All Templates</button>
+          </div>
+
+          <div style="margin-top: var(--space-4);">
+            <button id="btn-delete-all-data" class="btn-danger-outline" style="width: 100%;">Delete All Data</button>
+          </div>
         </div>
       </div>
-    </dialog>
+    </div>
 
-    <!-- MODAL: Confirmation Dialog (Generic & Reusable) -->
-    <dialog id="modal-confirm" class="app-dialog" aria-labelledby="confirm-modal-title">
-      <div class="dialog-content">
-        <div class="dialog-header">
-          <h2 id="confirm-modal-title" class="dialog-title">Please Confirm</h2>
-        </div>
-        <p id="confirm-modal-message" class="text-sm"></p>
-        <div class="dialog-footer">
-          <button id="btn-confirm-cancel" class="btn-secondary">Cancel</button>
-          <button id="btn-confirm-action" class="btn-primary">Confirm</button>
-        </div>
-      </div>
-    </dialog>
-
-    <!-- MODAL: Import Mode Prompt Dialog -->
-    <dialog id="modal-import-mode" class="app-dialog" aria-labelledby="import-modal-title">
-      <div class="dialog-content">
-        <div class="dialog-header">
-          <h2 id="import-modal-title" class="dialog-title">Import Backup</h2>
-        </div>
-        <p class="text-sm">How would you like to import this backup file?</p>
-        <div class="import-mode-choices">
-          <button id="btn-import-merge" class="btn-primary btn-block">
-            <strong>Merge Data (Recommended)</strong>
-            <span class="text-xs block text-muted">Combines imported sessions with your existing logs.</span>
-          </button>
-          <button id="btn-import-replace" class="btn-danger btn-block">
-            <strong>Replace Everything</strong>
-            <span class="text-xs block text-muted">Overwrites current device data with backup file.</span>
-          </button>
-        </div>
-        <div class="dialog-footer">
-          <button id="btn-import-cancel" class="btn-secondary">Cancel</button>
-        </div>
-      </div>
-    </dialog>
+    <!-- Toast Notification (with Undo) -->
+    <div id="toast-bar" class="toast-bar" role="status" aria-live="polite">
+      <span id="toast-message" class="toast-text"></span>
+      <button id="btn-toast-undo" class="btn-toast-undo">Undo</button>
+    </div>
 
   </div>
 
-  <!-- Scripts -->
+  <!-- Scripts: plan.js, storage.js, app.js -->
   <script src="data/plan.js"></script>
   <script src="storage.js"></script>
   <script src="app.js"></script>

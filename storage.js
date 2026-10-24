@@ -1,30 +1,434 @@
 /**
- * storage.js - Complete persistence layer for Training Planner PWA
- * All storage operations are contained here.
- * Ready for future backend integration (e.g. Supabase, Firebase) without touching UI code.
+ * storage.js - Complete Persistence Layer for Training Planner PWA (v2)
+ * Local-first architecture with async interface, collection-based storage,
+ * and automatic migration from v1. Ready for remote sync adapter.
  */
 
-const STORAGE_KEY = 'training_planner_v1_data';
+const STORAGE_V2_KEY = 'training_planner_v2_data';
+const STORAGE_V1_KEY = 'training_planner_v1_data';
 
-const DEFAULT_STORAGE = {
-  version: 1,
-  theme: 'auto', // 'auto' | 'dark' | 'light'
-  lastBackup: null,
-  weeks: {},     // Key: "2026-W43" -> { planType: "3-day-plan", scheduleOverrides: { 1: "rest" } }
-  logs: {},      // Key: "2026-W43_1_strength-a" -> session log
-  overrides: {}  // Key: "strength-a" -> { hidden: [], replaced: {}, edited: {}, added: [], order: [] }
+/**
+ * Concise cues (max ~12 words) for the exercise library
+ */
+const SHORT_EXERCISE_TIPS = {
+  'back-squat': 'Brace core firmly, keep chest proud, drive through mid-foot.',
+  'bench-press': 'Retract shoulder blades, control bar down to lower chest.',
+  'seated-cable-row': 'Pull shoulders back first, row elbows toward your hips.',
+  'lat-pulldown': 'Grip outside shoulders, pull elbows down to collarbone.',
+  'dumbbell-shoulder-press': 'Angle elbows slightly forward, press overhead without arching.',
+  'romanian-deadlift-barbell': 'Hinge hips back with soft knees, feel deep hamstring tension.',
+  'suitcase-carry': 'Stand tall with level shoulders, walk slowly resisting sideways tilt.',
+  'bulgarian-split-squat': 'Drop back knee straight down, keep front foot grounded.',
+  'dumbbell-swing-or-jump-squats': 'Snap hips explosively; absorb landing softly through hips.',
+  'conventional-deadlift': 'Bar over mid-foot, brace lats and core, push floor away.',
+  'pushups-or-bench-press': 'Keep full rigid plank, lower under control, lock out.',
+  'cable-face-pulls': 'Pull toward nose, rotate hands back, squeeze rear delts.',
+  'hanging-knee-raises': 'Roll pelvis upward toward ribcage; pause briefly at top.',
+  'dumbbell-calf-raises': 'Full stretch at bottom, drive through big toes, pause at top.',
+  'flat-dumbbell-bench-press': 'Dumbbells at 45 degrees, descend to deep chest stretch.',
+  'one-arm-cable-row': 'Reach forward for lat stretch, row elbow backward to hip.',
+  'goblet-squat': 'Keep dumbbell against chest, sink hips deep between feet.',
+  'romanian-deadlift-dumbbells': 'Track weights down shins, push hips back into hamstrings.',
+  'dumbbell-lateral-raises': 'Lead with elbows in scapular plane, avoid shrugging traps.',
+  'superset-curls-triceps': 'Full supination on curls, then overhead extension with elbows tucked.',
+  'conditioning-finisher-c': 'Maintain steady output; breathe calmly during recovery intervals.',
+  'conditioning-finisher-fb': 'Work at high sustained effort; skip after heavy sparring.',
+  'mobility-90-90': 'Sit tall, oscillate knees smoothly from side to side.',
+  'mobility-couch-stretch': 'Squeeze glute of back leg to open front hip flexor.',
+  'mobility-hamstring-stretch': 'Hinge forward with neutral spine, breathe into hamstring.',
+  'mobility-frog-stretch': 'Knees wide on mat, sit back gently into adductors.',
+  'mobility-wall-ankle': 'Drive knee forward past toes keeping heel pinned down.',
+  'mobility-thoracic-rotations': 'Knees pinned at 90 degrees, sweep top arm wide.',
+  'mobility-shoulder-dislocates': 'Keep elbows extended, rotate smoothly overhead and back.',
+  'mobility-deep-squat-hold': 'Sit deep, push knees out with elbows, breathe into belly.',
+  'mini-breathing': 'Inhale gently for 4s, exhale silently for 6s.',
+  'mini-cat-cow': 'Move vertebra by vertebra between flexion and gentle extension.',
+  'mini-90-90': 'Rotate both knees from side to side staying seated tall.',
+  'mini-ankle': 'Drive knee forward over second toe keeping heel pinned.',
+  'mini-hamstring-hip': 'Hold gentle tension without forcing range; breathe deeply.'
 };
 
+/**
+ * Seed Library and Templates from window.PLAN_DATA
+ */
+function createSeedData() {
+  const plan = (typeof window !== 'undefined' && window.PLAN_DATA) ? window.PLAN_DATA : null;
+  const now = new Date().toISOString();
+
+  const library = {};
+  const templates = {};
+
+  if (!plan) {
+    return {
+      version: 2,
+      library,
+      templates,
+      logs: {},
+      weeks: {},
+      settings: { theme: 'auto', lastBackup: null, updatedAt: now }
+    };
+  }
+
+  // 1. Build library from all exercises in plan.js
+  Object.values(plan.sessions || {}).forEach(sess => {
+    (sess.exercises || []).forEach(ex => {
+      if (!library[ex.id]) {
+        library[ex.id] = {
+          id: ex.id,
+          name: ex.name,
+          tip: SHORT_EXERCISE_TIPS[ex.id] || (ex.tip ? ex.tip.split('.')[0] + '.' : ''),
+          defaultSets: ex.targetSets || 3,
+          repMin: ex.repMin || 8,
+          repMax: ex.repMax || 12,
+          repRange: ex.repRange || '8–12',
+          restSec: ex.restSeconds || 90,
+          lastWeightKg: null,
+          pinnedNote: '',
+          alternatives: (ex.alternatives || []).map(a => a.id),
+          updatedAt: now
+        };
+      }
+      // Also register alternatives in library
+      (ex.alternatives || []).forEach(alt => {
+        if (!library[alt.id]) {
+          library[alt.id] = {
+            id: alt.id,
+            name: alt.name,
+            tip: SHORT_EXERCISE_TIPS[alt.id] || '',
+            defaultSets: ex.targetSets || 3,
+            repMin: ex.repMin || 8,
+            repMax: ex.repMax || 12,
+            repRange: ex.repRange || '8–12',
+            restSec: ex.restSeconds || 90,
+            lastWeightKg: null,
+            pinnedNote: '',
+            alternatives: [ex.id],
+            updatedAt: now
+          };
+        }
+      });
+    });
+  });
+
+  // 2. Build templates from plan.js sessions
+  Object.values(plan.sessions || {}).forEach(sess => {
+    const isStrength = sess.type === 'strength';
+    const isCardio = sess.type === 'cardio-mobility';
+
+    templates[sess.id] = {
+      id: sess.id,
+      name: sess.title || sess.id,
+      shortTitle: sess.shortTitle || sess.title,
+      kind: sess.type,
+      durationMin: parseInt(sess.duration, 10) || (sess.type === 'rest' ? 0 : 60),
+      durationDisplay: sess.duration || '60 min',
+      goal: sess.goal || '',
+      when: sess.when || '',
+      warmup: (sess.warmup || []).map(text => ({ name: text })),
+      main: (sess.exercises || []).map(ex => ({
+        exerciseId: ex.id,
+        name: ex.name,
+        sets: ex.targetSets || 3,
+        repMin: ex.repMin || 8,
+        repMax: ex.repMax || 12,
+        repRange: ex.repRange || '8–12',
+        restSec: ex.restSeconds || 90
+      })),
+      cooldown: (sess.cooldown || []).map(text => ({ name: text })),
+      cardio: isCardio ? {
+        variant: 'run-7km',
+        durationMin: 40,
+        distanceKm: 7.5
+      } : null,
+      updatedAt: now
+    };
+  });
+
+  return {
+    version: 2,
+    library,
+    templates,
+    logs: {},
+    weeks: {},
+    settings: {
+      theme: 'auto',
+      lastBackup: null,
+      updatedAt: now
+    }
+  };
+}
+
+/**
+ * Migration from v1 to v2 schema
+ */
+function migrateV1toV2(v1Data) {
+  const v2 = createSeedData();
+  const now = new Date().toISOString();
+
+  if (!v1Data || typeof v1Data !== 'object') return v2;
+
+  // Settings migration
+  if (v1Data.theme) v2.settings.theme = v1Data.theme;
+  if (v1Data.lastBackup) v2.settings.lastBackup = v1Data.lastBackup;
+
+  // Weeks migration
+  if (v1Data.weeks) {
+    Object.keys(v1Data.weeks).forEach(isoWeek => {
+      const w = v1Data.weeks[isoWeek];
+      const planVariant = w.planType === '2-day-fallback' ? '2-day' : '3-day';
+      const moves = {};
+      if (w.scheduleOverrides) {
+        Object.keys(w.scheduleOverrides).forEach(dayIdx => {
+          const sessId = w.scheduleOverrides[dayIdx];
+          moves[sessId] = Number(dayIdx);
+        });
+      }
+      v2.weeks[isoWeek] = {
+        id: isoWeek,
+        planVariant,
+        moves,
+        updatedAt: now
+      };
+    });
+  }
+
+  // Apply v1 overrides into templates/library
+  if (v1Data.overrides) {
+    Object.keys(v1Data.overrides).forEach(sessId => {
+      const template = v2.templates[sessId];
+      const ov = v1Data.overrides[sessId];
+      if (!template || !ov) return;
+
+      const hidden = new Set(ov.hidden || []);
+      const replaced = ov.replaced || {};
+      const edited = ov.edited || {};
+      const added = ov.added || [];
+
+      // Filter hidden and apply replacements / edits
+      template.main = template.main.filter(item => !hidden.has(item.exerciseId)).map(item => {
+        let exId = item.exerciseId;
+        let name = item.name;
+
+        if (replaced[exId]) {
+          const rep = replaced[exId];
+          exId = rep.id;
+          name = rep.name;
+          if (!v2.library[exId]) {
+            v2.library[exId] = {
+              id: exId,
+              name,
+              tip: '',
+              defaultSets: item.sets,
+              repMin: item.repMin,
+              repMax: item.repMax,
+              repRange: item.repRange,
+              restSec: item.restSec,
+              lastWeightKg: null,
+              pinnedNote: '',
+              alternatives: [],
+              updatedAt: now
+            };
+          }
+        }
+
+        const ed = edited[exId] || {};
+        return {
+          exerciseId: exId,
+          name,
+          sets: ed.targetSets !== undefined ? Number(ed.targetSets) : item.sets,
+          repMin: ed.repMin !== undefined ? Number(ed.repMin) : item.repMin,
+          repMax: ed.repMax !== undefined ? Number(ed.repMax) : item.repMax,
+          repRange: ed.repRange || item.repRange,
+          restSec: ed.restSeconds !== undefined ? Number(ed.restSeconds) : item.restSec
+        };
+      });
+
+      // Add custom additions
+      added.forEach(addEx => {
+        if (!v2.library[addEx.id]) {
+          v2.library[addEx.id] = {
+            id: addEx.id,
+            name: addEx.name,
+            tip: addEx.tip || '',
+            defaultSets: addEx.targetSets || 3,
+            repMin: addEx.repMin || 8,
+            repMax: addEx.repMax || 12,
+            repRange: addEx.repRange || '8–12',
+            restSec: addEx.restSeconds || 90,
+            lastWeightKg: null,
+            pinnedNote: '',
+            alternatives: [],
+            updatedAt: now
+          };
+        }
+        template.main.push({
+          exerciseId: addEx.id,
+          name: addEx.name,
+          sets: addEx.targetSets || 3,
+          repMin: addEx.repMin || 8,
+          repMax: addEx.repMax || 12,
+          repRange: addEx.repRange || '8–12',
+          restSec: addEx.restSeconds || 90
+        });
+      });
+
+      // Custom order
+      if (Array.isArray(ov.order) && ov.order.length > 0) {
+        const orderMap = new Map();
+        ov.order.forEach((id, idx) => orderMap.set(id, idx));
+        template.main.sort((a, b) => {
+          const ordA = orderMap.has(a.exerciseId) ? orderMap.get(a.exerciseId) : 999;
+          const ordB = orderMap.has(b.exerciseId) ? orderMap.get(b.exerciseId) : 999;
+          return ordA - ordB;
+        });
+      }
+    });
+  }
+
+  // Logs migration
+  if (v1Data.logs) {
+    Object.keys(v1Data.logs).forEach(logKey => {
+      const oldLog = v1Data.logs[logKey];
+      if (!oldLog) return;
+
+      const parts = logKey.split('_');
+      const isoWeek = oldLog.isoWeek || (parts.length >= 1 ? parts[0] : '');
+      const dayIndex = oldLog.dayIndex !== undefined ? Number(oldLog.dayIndex) : (parts.length >= 2 ? Number(parts[1]) : 0);
+      const sessionId = oldLog.sessionId || (parts.length >= 3 ? parts[2] : 'strength-a');
+
+      const exercises = [];
+      if (oldLog.exercises) {
+        Object.keys(oldLog.exercises).forEach(exId => {
+          const exData = oldLog.exercises[exId];
+          const sets = (exData.sets || []).map(s => ({
+            kg: s.weight !== undefined && s.weight !== '' ? Number(s.weight) : null,
+            reps: s.reps !== undefined && s.reps !== '' ? Number(s.reps) : null,
+            done: !!s.done
+          }));
+
+          // Top / first weight for library lastWeightKg
+          const firstKgSet = sets.find(s => s.kg !== null && s.kg > 0);
+          if (firstKgSet && v2.library[exId]) {
+            v2.library[exId].lastWeightKg = firstKgSet.kg;
+          }
+
+          exercises.push({
+            exerciseId: exId,
+            name: exData.swappedWith ? exData.swappedWith.name : (v2.library[exId]?.name || exId),
+            weightKg: firstKgSet ? firstKgSet.kg : null,
+            sets,
+            note: ''
+          });
+        });
+      }
+
+      v2.logs[logKey] = {
+        id: logKey,
+        date: oldLog.completedAt || null,
+        isoWeek,
+        dayIndex,
+        sessionId,
+        completed: !!oldLog.completed,
+        completedAt: oldLog.completedAt || null,
+        templateSnapshot: null,
+        exercises,
+        sessionNote: oldLog.notes || '',
+        rpe: oldLog.rpe || null,
+        feeling: oldLog.feeling || null,
+        sleepHours: oldLog.sleepHours || null,
+        duration: oldLog.duration || null,
+        distance: oldLog.distance || null,
+        avgHr: oldLog.avgHr || null,
+        variant: oldLog.variant || null,
+        warmupDone: oldLog.warmup || [],
+        cooldownDone: oldLog.cooldown || [],
+        miniMobilityDone: oldLog.miniMobility || [],
+        updatedAt: now
+      };
+    });
+  }
+
+  return v2;
+}
+
+/**
+ * Quick Add Line Parser:
+ * E.g.: "Bench press 3x6-10 2min" -> { name: "Bench press", sets: 3, repMin: 6, repMax: 10, restSec: 120 }
+ */
+function parseQuickAddString(rawText, library = {}) {
+  let text = (rawText || '').trim();
+  if (!text) return null;
+
+  let restSec = null;
+  let sets = null;
+  let repMin = null;
+  let repMax = null;
+
+  // 1. Match rest time: "2min", "2:00", "90s", "90 sec"
+  const restMinMatch = text.match(/(\d+)\s*min(?:ute)?s?/i);
+  if (restMinMatch) {
+    restSec = parseInt(restMinMatch[1], 10) * 60;
+    text = text.replace(restMinMatch[0], '');
+  } else {
+    const colonMatch = text.match(/(\d+):(\d{2})/);
+    if (colonMatch) {
+      restSec = parseInt(colonMatch[1], 10) * 60 + parseInt(colonMatch[2], 10);
+      text = text.replace(colonMatch[0], '');
+    } else {
+      const secMatch = text.match(/(\d+)\s*s(?:ec)?(?:onds?)?/i);
+      if (secMatch) {
+        restSec = parseInt(secMatch[1], 10);
+        text = text.replace(secMatch[0], '');
+      }
+    }
+  }
+
+  // 2. Match sets × reps: "3x6-10", "3 x 8", "4*5", "3×10–12"
+  const setsRepsMatch = text.match(/(\d+)\s*[xX*×]\s*(\d+)(?:\s*[-–—]\s*(\d+))?/);
+  if (setsRepsMatch) {
+    sets = parseInt(setsRepsMatch[1], 10);
+    repMin = parseInt(setsRepsMatch[2], 10);
+    repMax = setsRepsMatch[3] ? parseInt(setsRepsMatch[3], 10) : repMin;
+    text = text.replace(setsRepsMatch[0], '');
+  }
+
+  // Clean exercise name
+  let name = text.replace(/\s+/g, ' ').replace(/^[-•,]+|[-•,]+$/g, '').trim();
+  if (!name) name = 'Custom Exercise';
+
+  // Check if exercise exists in library
+  const nameLower = name.toLowerCase();
+  const existingKey = Object.keys(library).find(k => library[k].name && library[k].name.toLowerCase() === nameLower);
+  const existing = existingKey ? library[existingKey] : null;
+
+  const exerciseId = existing ? existing.id : 'custom-' + nameLower.replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
+
+  const finalSets = sets || (existing ? existing.defaultSets : 3);
+  const finalRepMin = repMin || (existing ? existing.repMin : 8);
+  const finalRepMax = repMax || (existing ? existing.repMax : 12);
+  const finalRestSec = restSec !== null ? restSec : (existing ? existing.restSec : 90);
+
+  return {
+    exerciseId,
+    name: existing ? existing.name : name,
+    sets: finalSets,
+    repMin: finalRepMin,
+    repMax: finalRepMax,
+    repRange: finalRepMin === finalRepMax ? `${finalRepMin}` : `${finalRepMin}–${finalRepMax}`,
+    restSec: finalRestSec
+  };
+}
+
+/**
+ * Storage Service with clean Async Interface
+ */
 const StorageService = {
-  /**
-   * Request persistent storage permission on supported browsers
-   */
+  _cache: null,
+
   async requestPersist() {
     try {
       if (typeof navigator !== 'undefined' && navigator.storage && navigator.storage.persist) {
-        const isPersisted = await navigator.storage.persist();
-        console.log('[Storage] Persistent storage granted:', isPersisted);
-        return isPersisted;
+        return await navigator.storage.persist();
       }
     } catch (e) {
       console.warn('[Storage] Persistence request failed:', e);
@@ -33,414 +437,284 @@ const StorageService = {
   },
 
   /**
-   * Load current state from localStorage. Always safe, never throws.
+   * Load state from localStorage. Handles v1 -> v2 migration.
    */
-  load() {
+  async getState() {
+    if (this._cache) return this._cache;
+
+    if (typeof window === 'undefined' || !window.localStorage) {
+      this._cache = createSeedData();
+      return this._cache;
+    }
+
     try {
-      if (typeof window === 'undefined' || !window.localStorage) {
-        return JSON.parse(JSON.stringify(DEFAULT_STORAGE));
+      const v2Raw = localStorage.getItem(STORAGE_V2_KEY);
+      if (v2Raw) {
+        const parsed = JSON.parse(v2Raw);
+        if (parsed && parsed.version === 2) {
+          this._cache = parsed;
+          return this._cache;
+        }
       }
-      const raw = localStorage.getItem(STORAGE_KEY);
-      if (!raw) {
-        return JSON.parse(JSON.stringify(DEFAULT_STORAGE));
+
+      // Check if v1 exists for migration
+      const v1Raw = localStorage.getItem(STORAGE_V1_KEY);
+      if (v1Raw) {
+        console.log('[Storage] Migrating from v1 schema to v2...');
+        const v1Parsed = JSON.parse(v1Raw);
+        const migrated = migrateV1toV2(v1Parsed);
+        this._cache = migrated;
+        await this.saveState(migrated);
+        return this._cache;
       }
-      const parsed = JSON.parse(raw);
-      if (!parsed || typeof parsed !== 'object') {
-        return JSON.parse(JSON.stringify(DEFAULT_STORAGE));
-      }
-      return {
-        version: parsed.version || 1,
-        theme: parsed.theme || 'auto',
-        lastBackup: parsed.lastBackup || null,
-        weeks: parsed.weeks || {},
-        logs: parsed.logs || {},
-        overrides: parsed.overrides || {}
-      };
+
+      // Fresh seed
+      const seeded = createSeedData();
+      this._cache = seeded;
+      await this.saveState(seeded);
+      return this._cache;
     } catch (err) {
-      console.error('[Storage] Error loading data from localStorage:', err);
-      return JSON.parse(JSON.stringify(DEFAULT_STORAGE));
+      console.error('[Storage] Error loading data, returning seed:', err);
+      this._cache = createSeedData();
+      return this._cache;
     }
   },
 
   /**
-   * Save complete state to localStorage
+   * Synchronous load for immediate startup render
    */
-  save(data) {
+  getStateSync() {
+    if (this._cache) return this._cache;
+
     try {
-      if (typeof window === 'undefined' || !window.localStorage) return false;
-      const cleanData = {
-        version: data.version || 1,
-        theme: data.theme || 'auto',
-        lastBackup: data.lastBackup || null,
-        weeks: data.weeks || {},
-        logs: data.logs || {},
-        overrides: data.overrides || {}
-      };
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(cleanData));
+      const v2Raw = localStorage.getItem(STORAGE_V2_KEY);
+      if (v2Raw) {
+        const parsed = JSON.parse(v2Raw);
+        if (parsed && parsed.version === 2) {
+          this._cache = parsed;
+          return this._cache;
+        }
+      }
+      const v1Raw = localStorage.getItem(STORAGE_V1_KEY);
+      if (v1Raw) {
+        const v1Parsed = JSON.parse(v1Raw);
+        const migrated = migrateV1toV2(v1Parsed);
+        this._cache = migrated;
+        localStorage.setItem(STORAGE_V2_KEY, JSON.stringify(migrated));
+        return this._cache;
+      }
+    } catch (e) {
+      console.warn('[Storage] Sync load error:', e);
+    }
+
+    this._cache = createSeedData();
+    return this._cache;
+  },
+
+  /**
+   * Save complete state
+   */
+  async saveState(state) {
+    this._cache = state;
+    try {
+      if (typeof window !== 'undefined' && window.localStorage) {
+        localStorage.setItem(STORAGE_V2_KEY, JSON.stringify(state));
+      }
       return true;
     } catch (err) {
-      console.error('[Storage] Error saving data to localStorage:', err);
+      console.error('[Storage] Save error:', err);
       return false;
     }
   },
 
   /**
-   * Get plan type for a given ISO week ('3-day-plan' or '2-day-fallback')
+   * Upsert a record into a collection
    */
-  getWeekPlanType(data, isoWeek) {
-    if (data.weeks && data.weeks[isoWeek] && data.weeks[isoWeek].planType) {
-      return data.weeks[isoWeek].planType;
-    }
-    return '3-day-plan'; // default to 3-day plan
+  async upsert(collection, record) {
+    const state = await this.getState();
+    if (!state[collection]) state[collection] = {};
+    record.updatedAt = new Date().toISOString();
+    state[collection][record.id] = record;
+    await this.saveState(state);
+    return record;
   },
 
   /**
-   * Set plan type for a given ISO week
+   * Soft-delete a record from a collection
    */
-  setWeekPlanType(data, isoWeek, planType) {
-    if (!data.weeks[isoWeek]) {
-      data.weeks[isoWeek] = { planType, scheduleOverrides: {} };
-    } else {
-      data.weeks[isoWeek].planType = planType;
+  async remove(collection, id) {
+    const state = await this.getState();
+    if (state[collection] && state[collection][id]) {
+      state[collection][id].deletedAt = new Date().toISOString();
+      await this.saveState(state);
+      return true;
     }
-    this.save(data);
+    return false;
   },
 
   /**
-   * Get resolved 7-day schedule for a given ISO week, considering weekly plan type and overrides
+   * Hard reset a template to default plan.js
    */
-  getResolvedWeekSchedule(data, isoWeek, planData) {
-    const planType = this.getWeekPlanType(data, isoWeek);
-    const basePlan = planData.weeklyPlans[planType] || planData.weeklyPlans['3-day-plan'];
-    const baseSchedule = [...basePlan.schedule];
-
-    // Apply schedule overrides if user moved sessions
-    const weekEntry = data.weeks && data.weeks[isoWeek];
-    if (weekEntry && weekEntry.scheduleOverrides) {
-      for (const [dayIdx, sessionId] of Object.entries(weekEntry.scheduleOverrides)) {
-        const idx = Number(dayIdx);
-        if (idx >= 0 && idx < 7) {
-          baseSchedule[idx] = sessionId;
-        }
-      }
-    }
-    return baseSchedule;
-  },
-
-  /**
-   * Set schedule override for a specific day in a week
-   */
-  setScheduleOverride(data, isoWeek, dayIndex, sessionId) {
-    if (!data.weeks[isoWeek]) {
-      data.weeks[isoWeek] = {
-        planType: this.getWeekPlanType(data, isoWeek),
-        scheduleOverrides: {}
-      };
-    }
-    if (!data.weeks[isoWeek].scheduleOverrides) {
-      data.weeks[isoWeek].scheduleOverrides = {};
-    }
-    data.weeks[isoWeek].scheduleOverrides[dayIndex] = sessionId;
-    this.save(data);
-  },
-
-  /**
-   * Merge session overrides layer onto base session from plan.js.
-   * NEVER mutates plan.js data.
-   */
-  resolveSessionWithOverrides(baseSession, overrides) {
-    if (!baseSession) return null;
-    const sessionOverrides = overrides && overrides[baseSession.id];
-    if (!sessionOverrides) {
-      return {
-        ...baseSession,
-        exercises: (baseSession.exercises || []).map(ex => ({ ...ex }))
-      };
-    }
-
-    const hiddenSet = new Set(sessionOverrides.hidden || []);
-    const replacedMap = sessionOverrides.replaced || {};
-    const editedMap = sessionOverrides.edited || {};
-    const addedList = sessionOverrides.added || [];
-
-    // Map and filter base exercises
-    let exercises = [];
-    (baseSession.exercises || []).forEach(origEx => {
-      if (hiddenSet.has(origEx.id)) return; // Skipped / hidden
-
-      let ex = { ...origEx };
-
-      // Apply replacement if exists
-      if (replacedMap[origEx.id]) {
-        ex = {
-          ...ex,
-          id: replacedMap[origEx.id].id,
-          name: replacedMap[origEx.id].name,
-          isReplaced: true,
-          originalId: origEx.id
-        };
-      }
-
-      // Apply field edits if exist
-      if (editedMap[ex.id]) {
-        const ed = editedMap[ex.id];
-        ex = {
-          ...ex,
-          targetSets: ed.targetSets !== undefined ? Number(ed.targetSets) : ex.targetSets,
-          repRange: ed.repRange !== undefined ? ed.repRange : ex.repRange,
-          repMin: ed.repMin !== undefined ? Number(ed.repMin) : ex.repMin,
-          repMax: ed.repMax !== undefined ? Number(ed.repMax) : ex.repMax,
-          restSeconds: ed.restSeconds !== undefined ? Number(ed.restSeconds) : ex.restSeconds,
-          restDisplay: ed.restDisplay !== undefined ? ed.restDisplay : ex.restDisplay,
-          tip: ed.tip !== undefined ? ed.tip : ex.tip,
-          isEdited: true
-        };
-      }
-
-      exercises.push(ex);
-    });
-
-    // Append added custom exercises
-    addedList.forEach(addEx => {
-      if (!hiddenSet.has(addEx.id)) {
-        exercises.push({ ...addEx, isCustomAdded: true });
-      }
-    });
-
-    // Apply custom order if defined
-    if (Array.isArray(sessionOverrides.order) && sessionOverrides.order.length > 0) {
-      const orderMap = new Map();
-      sessionOverrides.order.forEach((id, idx) => orderMap.set(id, idx));
-      exercises.sort((a, b) => {
-        const orderA = orderMap.has(a.id) ? orderMap.get(a.id) : 999;
-        const orderB = orderMap.has(b.id) ? orderMap.get(b.id) : 999;
-        return orderA - orderB;
-      });
-    }
-
-    return {
-      ...baseSession,
-      hasOverrides: true,
-      exercises
-    };
-  },
-
-  /**
-   * Find previous session logged values for a given exercise ID.
-   * Walks logs backwards in chronological order.
-   */
-  getPreviousExercisePerformance(data, exerciseId) {
-    if (!data.logs) return null;
-    const logKeys = Object.keys(data.logs).sort().reverse();
-
-    for (const key of logKeys) {
-      const sessionLog = data.logs[key];
-      if (!sessionLog || !sessionLog.exercises) continue;
-      const exLog = sessionLog.exercises[exerciseId];
-      if (exLog && Array.isArray(exLog.sets) && exLog.sets.length > 0) {
-        const validSets = exLog.sets.filter(s => s && s.done && (s.weight > 0 || s.reps > 0));
-        if (validSets.length > 0) {
-          // Found most recent session with logged sets
-          const firstSet = validSets[0];
-          const topWeightSet = [...validSets].sort((a, b) => Number(b.weight) - Number(a.weight))[0];
-          return {
-            logKey: key,
-            date: sessionLog.completedAt || null,
-            firstWeight: firstSet.weight,
-            firstReps: firstSet.reps,
-            topWeight: topWeightSet.weight,
-            topReps: topWeightSet.reps,
-            sets: validSets,
-            display: `${topWeightSet.weight || 0} kg × ${topWeightSet.reps || 0}`
-          };
-        }
-      }
+  async resetTemplate(sessionId) {
+    const state = await this.getState();
+    const seed = createSeedData();
+    if (seed.templates[sessionId]) {
+      state.templates[sessionId] = JSON.parse(JSON.stringify(seed.templates[sessionId]));
+      await this.saveState(state);
+      return state.templates[sessionId];
     }
     return null;
   },
 
   /**
-   * Check if exercise is eligible for "Increase next time" hint
+   * Hard reset all templates to default
    */
-  checkProgressHint(data, exercise) {
-    if (!exercise || !exercise.id) return false;
-    const prev = this.getPreviousExercisePerformance(data, exercise.id);
-    if (!prev || !prev.sets) return false;
-
-    // Check if targetSets were done at or above repMax
-    const repMax = exercise.repMax || 0;
-    if (repMax <= 0) return false;
-    const targetSets = exercise.targetSets || 3;
-
-    if (prev.sets.length < targetSets) return false;
-    const completedAtTop = prev.sets.slice(0, targetSets).every(s => Number(s.reps) >= repMax && s.done);
-    return completedAtTop;
+  async resetAllTemplates() {
+    const state = await this.getState();
+    const seed = createSeedData();
+    state.templates = JSON.parse(JSON.stringify(seed.templates));
+    await this.saveState(state);
+    return state.templates;
   },
 
   /**
-   * Export all app data as formatted JSON.
-   * Downloads as file, records lastBackup, and invokes Web Share API if available.
+   * Reset all data (factory reset)
    */
-  async exportData(data) {
+  async resetAll() {
     try {
-      const now = new Date();
-      data.lastBackup = now.toISOString();
-      this.save(data);
-
-      const jsonStr = JSON.stringify(data, null, 2);
-      const dateStamp = now.toISOString().split('T')[0];
-      const filename = `training-backup-${dateStamp}.json`;
-      const blob = new Blob([jsonStr], { type: 'application/json' });
-
-      // Check if Web Share API with files is supported (e.g. iPhone Safari)
-      let sharedSuccessfully = false;
-      if (typeof navigator !== 'undefined' && navigator.canShare && navigator.share) {
-        try {
-          const file = new File([blob], filename, { type: 'application/json' });
-          if (navigator.canShare({ files: [file] })) {
-            await navigator.share({
-              title: 'Training Planner Backup',
-              text: `Training Planner backup from ${dateStamp}`,
-              files: [file]
-            });
-            sharedSuccessfully = true;
-          }
-        } catch (shareErr) {
-          // If user cancelled or share failed, fallback to standard download
-          console.log('[Storage] Web Share skipped or aborted, falling back to download:', shareErr);
-        }
+      if (typeof window !== 'undefined' && window.localStorage) {
+        localStorage.removeItem(STORAGE_V2_KEY);
       }
-
-      // Fallback: browser file download
-      if (!sharedSuccessfully) {
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = filename;
-        document.body.appendChild(a);
-        a.click();
-        document.body.removeChild(a);
-        setTimeout(() => URL.revokeObjectURL(url), 1000);
-      }
-
-      return { success: true, date: data.lastBackup, filename };
-    } catch (err) {
-      console.error('[Storage] Export error:', err);
-      throw new Error(`Failed to export data: ${err.message}`);
+    } catch (e) {
+      console.warn('[Storage] Reset error:', e);
     }
+    this._cache = createSeedData();
+    await this.saveState(this._cache);
+    return this._cache;
   },
 
   /**
-   * Import data from JSON string.
-   * Validates structure, versions, and provides merge vs replace modes.
+   * Export all app collections as JSON
    */
-  importData(currentData, jsonString, mode = 'merge') {
+  async exportData() {
+    const state = await this.getState();
+    const now = new Date();
+    state.settings.lastBackup = now.toISOString();
+    await this.saveState(state);
+
+    const jsonStr = JSON.stringify(state, null, 2);
+    const dateStamp = now.toISOString().split('T')[0];
+    const filename = `training-backup-${dateStamp}.json`;
+    const blob = new Blob([jsonStr], { type: 'application/json' });
+
+    let shared = false;
+    if (typeof navigator !== 'undefined' && navigator.canShare && navigator.share) {
+      try {
+        const file = new File([blob], filename, { type: 'application/json' });
+        if (navigator.canShare({ files: [file] })) {
+          await navigator.share({
+            title: 'Training Planner Backup',
+            text: `Backup ${dateStamp}`,
+            files: [file]
+          });
+          shared = true;
+        }
+      } catch (e) {
+        // Fallback to download
+      }
+    }
+
+    if (!shared) {
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = filename;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      setTimeout(() => URL.revokeObjectURL(url), 1000);
+    }
+
+    return { success: true, date: state.settings.lastBackup, filename };
+  },
+
+  /**
+   * Import data from JSON string (Merge or Replace)
+   */
+  async importData(jsonString, mode = 'merge') {
     let imported;
     try {
       imported = JSON.parse(jsonString);
-    } catch (parseErr) {
-      throw new Error('Invalid JSON format: the file could not be parsed.');
+    } catch (e) {
+      throw new Error('Invalid JSON file format.');
     }
 
-    // Schema validation
     if (!imported || typeof imported !== 'object') {
-      throw new Error('Invalid backup file: root must be a valid JSON object.');
+      throw new Error('Invalid backup file: not a JSON object.');
     }
 
-    if (!imported.version || typeof imported.version !== 'number') {
-      throw new Error('Invalid backup schema: missing or invalid "version" field.');
+    // Support importing v1 or v2 format
+    let validV2Data;
+    if (imported.version === 1) {
+      validV2Data = migrateV1toV2(imported);
+    } else if (imported.version === 2) {
+      validV2Data = imported;
+    } else {
+      throw new Error('Unsupported backup schema version.');
     }
+
+    const current = await this.getState();
+    const now = new Date().toISOString();
 
     if (mode === 'replace') {
-      const newData = {
-        version: imported.version || 1,
-        theme: imported.theme || currentData.theme || 'auto',
-        lastBackup: new Date().toISOString(),
-        weeks: imported.weeks || {},
-        logs: imported.logs || {},
-        overrides: imported.overrides || {}
-      };
-      this.save(newData);
-      return newData;
+      validV2Data.settings.lastBackup = now;
+      await this.saveState(validV2Data);
+      return validV2Data;
     } else {
-      // Merge mode
+      // Merge
       const merged = {
-        version: Math.max(currentData.version || 1, imported.version || 1),
-        theme: imported.theme || currentData.theme || 'auto',
-        lastBackup: new Date().toISOString(),
-        weeks: { ...(currentData.weeks || {}), ...(imported.weeks || {}) },
-        logs: { ...(currentData.logs || {}), ...(imported.logs || {}) },
-        overrides: { ...(currentData.overrides || {}), ...(imported.overrides || {}) }
-      };
-
-      // Deep merge overrides for each session if both exist
-      if (currentData.overrides && imported.overrides) {
-        for (const sessionId of Object.keys(imported.overrides)) {
-          if (currentData.overrides[sessionId]) {
-            merged.overrides[sessionId] = {
-              hidden: Array.from(new Set([
-                ...(currentData.overrides[sessionId].hidden || []),
-                ...(imported.overrides[sessionId].hidden || [])
-              ])),
-              replaced: {
-                ...(currentData.overrides[sessionId].replaced || {}),
-                ...(imported.overrides[sessionId].replaced || {})
-              },
-              edited: {
-                ...(currentData.overrides[sessionId].edited || {}),
-                ...(imported.overrides[sessionId].edited || {})
-              },
-              added: [
-                ...(currentData.overrides[sessionId].added || []),
-                ...(imported.overrides[sessionId].added || []).filter(
-                  item => !(currentData.overrides[sessionId].added || []).some(x => x.id === item.id)
-                )
-              ],
-              order: imported.overrides[sessionId].order || currentData.overrides[sessionId].order || []
-            };
-          }
+        version: 2,
+        library: { ...current.library, ...(validV2Data.library || {}) },
+        templates: { ...current.templates, ...(validV2Data.templates || {}) },
+        logs: { ...current.logs, ...(validV2Data.logs || {}) },
+        weeks: { ...current.weeks, ...(validV2Data.weeks || {}) },
+        settings: {
+          theme: validV2Data.settings?.theme || current.settings?.theme || 'auto',
+          lastBackup: now,
+          updatedAt: now
         }
-      }
-
-      this.save(merged);
+      };
+      await this.saveState(merged);
       return merged;
     }
   },
 
   /**
-   * Check if backup reminder should be shown (>14 days without export, and user has logs)
+   * Backup reminder check: > 14 days without export and has logs
    */
-  shouldShowBackupReminder(data) {
-    const hasLogs = data.logs && Object.keys(data.logs).length > 0;
+  shouldShowBackupReminder(state) {
+    const hasLogs = state.logs && Object.keys(state.logs).length > 0;
     if (!hasLogs) return false;
+    if (!state.settings?.lastBackup) return true;
 
-    if (!data.lastBackup) return true; // Has logs but never exported!
     try {
-      const last = new Date(data.lastBackup).getTime();
-      const now = Date.now();
-      const daysSince = (now - last) / (1000 * 60 * 60 * 24);
-      return daysSince >= 14;
+      const last = new Date(state.settings.lastBackup).getTime();
+      const diffDays = (Date.now() - last) / (1000 * 60 * 60 * 24);
+      return diffDays >= 14;
     } catch {
       return true;
     }
   },
 
   /**
-   * Reset all data back to factory defaults
+   * Parser exposed on storage service
    */
-  resetAll() {
-    try {
-      if (typeof window !== 'undefined' && window.localStorage) {
-        localStorage.removeItem(STORAGE_KEY);
-      }
-    } catch (e) {
-      console.warn('[Storage] Clear error:', e);
-    }
-    return JSON.parse(JSON.stringify(DEFAULT_STORAGE));
+  parseQuickAdd(rawText, library) {
+    return parseQuickAddString(rawText, library);
   }
 };
 
-// Global export for vanilla scripts and modules
+// Global export for vanilla browser scripts and modules
 if (typeof window !== 'undefined') {
   window.StorageService = StorageService;
 }

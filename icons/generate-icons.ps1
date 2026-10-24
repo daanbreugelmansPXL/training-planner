@@ -1,60 +1,59 @@
 Add-Type -AssemblyName System.Drawing
 
 function Generate-Icon {
-    param([int]$size, [string]$path, [bool]$maskable = $false)
+    param(
+        [int]$size,
+        [string]$path,
+        [bool]$maskable = $false
+    )
     $bmp = New-Object System.Drawing.Bitmap $size, $size
     $g = [System.Drawing.Graphics]::FromImage($bmp)
     $g.SmoothingMode = [System.Drawing.Drawing2D.SmoothingMode]::AntiAlias
     $g.InterpolationMode = [System.Drawing.Drawing2D.InterpolationMode]::HighQualityBicubic
     
-    $rect = New-Object System.Drawing.Rectangle 0, 0, $size, $size
-    $bgBrush = New-Object System.Drawing.Drawing2D.LinearGradientBrush $rect, ([System.Drawing.ColorTranslator]::FromHtml('#1e2430')), ([System.Drawing.ColorTranslator]::FromHtml('#0e1117')), 45.0
-    $g.FillRectangle($bgBrush, $rect)
+    # Background: #0A0A0B
+    $bgColor = [System.Drawing.ColorTranslator]::FromHtml('#0A0A0B')
+    $bgBrush = New-Object System.Drawing.SolidBrush $bgColor
+    $g.FillRectangle($bgBrush, 0, 0, $size, $size)
     $bgBrush.Dispose()
 
-    if (-not $maskable) {
-        $pen = New-Object System.Drawing.Pen ([System.Drawing.ColorTranslator]::FromHtml('#2a3243')), ([float]($size * 0.015))
-        $g.DrawRectangle($pen, 0, 0, $size - 1, $size - 1)
-        $pen.Dispose()
-    }
-
+    # Scale factor (0.75 for maskable safe-zone, 0.85 for regular)
     $scale = if ($maskable) { $size * 0.70 / 512.0 } else { $size * 0.85 / 512.0 }
     $offsetX = [float](($size - (512.0 * $scale)) / 2.0)
     $offsetY = [float](($size - (512.0 * $scale)) / 2.0)
 
-    $rawPoints = @(
-        [System.Drawing.PointF]::new([float](285 * $scale + $offsetX), [float](70 * $scale + $offsetY)),
-        [System.Drawing.PointF]::new([float](165 * $scale + $offsetX), [float](265 * $scale + $offsetY)),
-        [System.Drawing.PointF]::new([float](255 * $scale + $offsetX), [float](265 * $scale + $offsetY)),
-        [System.Drawing.PointF]::new([float](220 * $scale + $offsetX), [float](442 * $scale + $offsetY)),
-        [System.Drawing.PointF]::new([float](360 * $scale + $offsetX), [float](230 * $scale + $offsetY)),
-        [System.Drawing.PointF]::new([float](270 * $scale + $offsetX), [float](230 * $scale + $offsetY))
-    )
+    # Colors
+    $whiteColor = [System.Drawing.ColorTranslator]::FromHtml('#F4F4F5')
+    $redColor = [System.Drawing.ColorTranslator]::FromHtml('#E5322D')
+    $whiteBrush = New-Object System.Drawing.SolidBrush $whiteColor
+    $redBrush = New-Object System.Drawing.SolidBrush $redColor
 
-    # Glow shadow
-    $glowPen = New-Object System.Drawing.Pen ([System.Drawing.Color]::FromArgb(70, 245, 158, 11)), ([float]($size * 0.08))
-    $glowPen.LineJoin = [System.Drawing.Drawing2D.LineJoin]::Round
-    $g.DrawPolygon($glowPen, $rawPoints)
-    $glowPen.Dispose()
+    # Top horizontal bar of "T" (left portion white: 136..290, right portion red: 290..376)
+    $topTLeftX = [float](136 * $scale + $offsetX)
+    $topTY = [float](130 * $scale + $offsetY)
+    $topTLeftW = [float](154 * $scale)
+    $topTH = [float](48 * $scale)
+    $g.FillRectangle($whiteBrush, $topTLeftX, $topTY, $topTLeftW, $topTH)
 
-    # Bolt Fill
-    $pt1 = [System.Drawing.PointF]::new(0.0, [float]$offsetY)
-    $pt2 = [System.Drawing.PointF]::new(0.0, [float]($offsetY + 512.0 * $scale))
-    $boltBrush = New-Object System.Drawing.Drawing2D.LinearGradientBrush $pt1, $pt2, ([System.Drawing.ColorTranslator]::FromHtml('#fbbf24')), ([System.Drawing.ColorTranslator]::FromHtml('#ea580c'))
-    $g.FillPolygon($boltBrush, $rawPoints)
-    $boltBrush.Dispose()
+    # Red accent right bar
+    $topTRightX = [float](290 * $scale + $offsetX)
+    $topTRightW = [float](86 * $scale)
+    $g.FillRectangle($redBrush, $topTRightX, $topTY, $topTRightW, $topTH)
 
-    # Crisp highlight outline
-    $outlineWidth = [float]([Math]::Max(1.5, $size * 0.012))
-    $outlinePen = New-Object System.Drawing.Pen ([System.Drawing.ColorTranslator]::FromHtml('#fffbeb')), $outlineWidth
-    $outlinePen.LineJoin = [System.Drawing.Drawing2D.LineJoin]::Round
-    $g.DrawPolygon($outlinePen, $rawPoints)
-    $outlinePen.Dispose()
+    # Vertical stem of "T" (232..280, 178..382)
+    $stemX = [float](232 * $scale + $offsetX)
+    $stemY = [float](178 * $scale + $offsetY)
+    $stemW = [float](48 * $scale)
+    $stemH = [float](204 * $scale)
+    $g.FillRectangle($whiteBrush, $stemX, $stemY, $stemW, $stemH)
 
+    $whiteBrush.Dispose()
+    $redBrush.Dispose()
     $g.Dispose()
+
     $bmp.Save($path, [System.Drawing.Imaging.ImageFormat]::Png)
     $bmp.Dispose()
-    Write-Output "Successfully generated: $path"
+    Write-Output "Generated icon: $path ($size x $size)"
 }
 
 $dir = "C:\Users\daanb\.gemini\antigravity\scratch\training-planner-pwa\icons"
