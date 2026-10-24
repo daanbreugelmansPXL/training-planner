@@ -139,18 +139,56 @@
       <!-- TAB 3: PROGRESS -->
       <section id="view-progress" class="view-pane">
         <div class="view-content">
-          <div class="progress-quiet-row">
-            <span id="progress-streak-label">Streak: 0 wks</span>
-            <span id="progress-total-label">Done: 0 sessions</span>
+          <div id="progress-overview-view">
+            <!-- Top block: Streak, Week, Month counts -->
+            <div class="progress-hero-block">
+              <div class="progress-streak-col">
+                <span class="progress-hero-label">Current Streak</span>
+                <div class="progress-streak-display">
+                  <span id="overview-streak-count" class="progress-streak-num">0</span>
+                  <span class="progress-streak-unit">sessions</span>
+                </div>
+              </div>
+              <div class="progress-period-counts">
+                <div class="progress-count-box">
+                  <span class="progress-hero-sublabel">This Week</span>
+                  <span id="overview-week-count" class="progress-count-val">0 / 0</span>
+                </div>
+                <div class="progress-count-box">
+                  <span class="progress-hero-sublabel">This Month</span>
+                  <span id="overview-month-count" class="progress-count-val">0</span>
+                </div>
+              </div>
+            </div>
+
+            <!-- 8-week consistency grid -->
+            <div class="progress-section-header">Consistency (Last 8 Weeks)</div>
+            <div id="overview-consistency-grid" class="consistency-grid-8w"></div>
+
+            <!-- Compact exercise list -->
+            <div class="progress-section-header">Exercises</div>
+            <div id="overview-exercise-list" class="overview-exercise-list">
+              <!-- Dynamically populated compact rows with sparklines -->
+            </div>
           </div>
 
-          <div id="progress-exercise-list" class="progress-exercise-list">
-            <!-- Dynamically populated exercise rows with SVG chart dropdown -->
+          <!-- Per-exercise Detail View (one tap deeper with back button) -->
+          <div id="progress-detail-view" class="progress-detail-view" style="display: none;">
+            <div class="progress-detail-header">
+              <button id="btn-back-to-overview" class="btn-action-text">‹ Back</button>
+              <h2 id="progress-detail-title" class="editor-title">Exercise</h2>
+            </div>
+            <div id="progress-detail-content"></div>
           </div>
         </div>
       </section>
 
     </main>
+
+    <!-- Sticky Finish Workout Bar (Phone: docked above bottom nav) -->
+    <div id="sticky-finish-bar" class="sticky-finish-bar" style="display: none;">
+      <button id="btn-finish-workout" class="btn-finish-workout">Finish workout</button>
+    </div>
 
     <!-- Rest Timer (Docked compact hairline bar above bottom nav) -->
     <div id="docked-rest-timer" class="rest-timer-docked" role="region" aria-label="Rest Timer">
@@ -237,6 +275,147 @@
           <div style="margin-top: var(--space-4);">
             <button id="btn-delete-all-data" class="btn-danger-outline" style="width: 100%;">Delete All Data</button>
           </div>
+
+          <div style="margin-top: var(--space-4); text-align: center;">
+            <span class="app-version-tag" style="font-size: 11px; color: var(--text-muted); letter-spacing: 0.05em;">Training Planner v2.1</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Template Main Exercise Editor Bottom Sheet -->
+    <div id="sheet-edit-template-exercise" class="bottom-sheet-overlay" role="dialog" aria-modal="true" aria-labelledby="tpl-exercise-title">
+      <div class="bottom-sheet">
+        <div class="sheet-header">
+          <h3 id="tpl-exercise-title" class="sheet-title">Edit Exercise</h3>
+          <button id="btn-close-tpl-exercise" class="btn-action-text">✕</button>
+        </div>
+
+        <div class="tpl-sheet-content">
+          <div class="tpl-sheet-field">
+            <label class="tpl-sheet-label">Exercise Name</label>
+            <input type="text" id="tpl-field-name" class="input-quick-add" style="font-size: 15px; font-weight: 700;">
+          </div>
+
+          <div class="tpl-stepper-row" id="tpl-sets-stepper-wrap">
+            <span class="tpl-stepper-label">Sets</span>
+            <div class="tpl-stepper-ctrl">
+              <button class="btn-stepper" id="btn-stepper-sets-sub">−</button>
+              <span id="val-stepper-sets" class="tpl-stepper-val">3</span>
+              <button class="btn-stepper" id="btn-stepper-sets-add">+</button>
+            </div>
+          </div>
+
+          <!-- Numeric reps range -->
+          <div id="tpl-numeric-reps-wrap">
+            <div class="tpl-stepper-row">
+              <span class="tpl-stepper-label">Rep Min</span>
+              <div class="tpl-stepper-ctrl">
+                <button class="btn-stepper" id="btn-stepper-repmin-sub">−</button>
+                <span id="val-stepper-repmin" class="tpl-stepper-val">8</span>
+                <button class="btn-stepper" id="btn-stepper-repmin-add">+</button>
+              </div>
+            </div>
+            <div class="tpl-stepper-row">
+              <span class="tpl-stepper-label">Rep Max</span>
+              <div class="tpl-stepper-ctrl">
+                <button class="btn-stepper" id="btn-stepper-repmax-sub">−</button>
+                <span id="val-stepper-repmax" class="tpl-stepper-val">12</span>
+                <button class="btn-stepper" id="btn-stepper-repmax-add">+</button>
+              </div>
+            </div>
+          </div>
+
+          <!-- Free-text target field for special items -->
+          <div class="tpl-sheet-field" id="tpl-target-label-wrap" style="display: none;">
+            <label class="tpl-sheet-label">Target / Protocol</label>
+            <input type="text" id="tpl-field-target-label" class="input-quick-add" placeholder="e.g. 10–15 each">
+          </div>
+
+          <!-- Rest Seconds Stepper -->
+          <div class="tpl-stepper-row">
+            <span class="tpl-stepper-label">Rest</span>
+            <div class="tpl-stepper-ctrl">
+              <button class="btn-stepper" id="btn-stepper-rest-sub">−</button>
+              <span id="val-stepper-rest" class="tpl-stepper-val">1:30</span>
+              <button class="btn-stepper" id="btn-stepper-rest-add">+</button>
+            </div>
+          </div>
+
+          <!-- Move / Delete Actions -->
+          <div class="tpl-sheet-actions">
+            <div style="display: flex; gap: var(--space-2); margin-top: var(--space-3);">
+              <button id="btn-tpl-ex-move-up" class="btn-action-text" style="flex: 1;">▲ Move Up</button>
+              <button id="btn-tpl-ex-move-down" class="btn-action-text" style="flex: 1;">▼ Move Down</button>
+            </div>
+            <div style="margin-top: var(--space-3);">
+              <button id="btn-tpl-ex-delete" class="btn-danger-outline" style="width: 100%;">Delete Exercise</button>
+            </div>
+          </div>
+
+          <div style="margin-top: var(--space-4);">
+            <button id="btn-save-tpl-exercise" class="btn-primary-action" style="width: 100%;">Done</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Completion Celebration Reward Sheet -->
+    <div id="sheet-completion" class="bottom-sheet-overlay" role="dialog" aria-modal="true" aria-labelledby="completion-session-name">
+      <div class="bottom-sheet completion-sheet">
+        <div class="completion-inner">
+          <div class="completion-check-wrap">
+            <svg class="completion-checkmark" viewBox="0 0 52 52">
+              <circle class="checkmark-circle" cx="26" cy="26" r="24" fill="none"/>
+              <path class="checkmark-check" fill="none" d="M14 27l8 8 16-16"/>
+            </svg>
+          </div>
+          <h2 id="completion-session-name" class="completion-title">Strength C</h2>
+          <div class="completion-subtitle">Workout Completed</div>
+
+          <div class="completion-stats-grid">
+            <div class="completion-stat-box">
+              <span class="completion-stat-label">Duration</span>
+              <span id="completion-stat-duration" class="completion-stat-val">—</span>
+            </div>
+            <div class="completion-stat-box">
+              <span class="completion-stat-label">Sets Done</span>
+              <span id="completion-stat-sets" class="completion-stat-val">0</span>
+            </div>
+            <div class="completion-stat-box">
+              <span class="completion-stat-label">Total Volume</span>
+              <span id="completion-stat-volume" class="completion-stat-val">0 kg</span>
+            </div>
+          </div>
+
+          <div id="completion-streak-badge" class="completion-streak-badge">
+            Streak: 1 session
+          </div>
+
+          <button id="btn-close-completion" class="btn-primary-action" style="width: 100%; margin-top: var(--space-4);">Close</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Session More Menu ("⋯") -->
+    <div id="sheet-session-menu" class="bottom-sheet-overlay" role="dialog" aria-modal="true">
+      <div class="bottom-sheet session-menu-sheet">
+        <div class="menu-action-list">
+          <button id="menu-btn-skip" class="menu-action-item">Skip workout</button>
+          <button id="menu-btn-reopen" class="menu-action-item" style="display: none;">Reopen workout</button>
+          <button id="menu-btn-cancel" class="menu-action-item menu-cancel">Cancel</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Confirmation Dialog Modal -->
+    <div id="modal-confirm" class="bottom-sheet-overlay" role="dialog" aria-modal="true">
+      <div class="bottom-sheet confirm-sheet">
+        <h3 id="modal-confirm-title" class="sheet-title">Confirm</h3>
+        <p id="modal-confirm-msg" class="confirm-message" style="margin-top: 8px; color: var(--text-muted); font-size: 14px;"></p>
+        <div style="display: flex; gap: var(--space-2); margin-top: var(--space-4);">
+          <button id="btn-modal-cancel" class="btn-action-text" style="flex: 1;">Cancel</button>
+          <button id="btn-modal-confirm" class="btn-primary-action" style="flex: 1;">Confirm</button>
         </div>
       </div>
     </div>

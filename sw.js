@@ -1,9 +1,6 @@
-/**
- * Service Worker for Training Planner PWA
- * REMINDER: Bump CACHE_NAME version on each release so clients get updates immediately!
- */
-
-const CACHE_NAME = 'training-planner-shell-v3';
+// bump CACHE_VERSION on every release
+const CACHE_VERSION = 'training-planner-v2.1';
+const CACHE_NAME = CACHE_VERSION;
 
 const APP_SHELL_ASSETS = [
   './',
@@ -45,37 +42,48 @@ self.addEventListener('activate', (event) => {
 self.addEventListener('fetch', (event) => {
   if (event.request.method !== 'GET') return;
 
-  event.respondWith(
-    caches.match(event.request).then((cachedResponse) => {
-      if (cachedResponse) {
-        // Cache hit: return immediately, revalidate in background
-        fetch(event.request).then((networkResponse) => {
+  const url = new URL(event.request.url);
+  const isIcon = url.pathname.includes('/icons/') || url.pathname.endsWith('.png') || url.pathname.endsWith('.svg');
+
+  if (isIcon) {
+    // Cache-first for icons
+    event.respondWith(
+      caches.match(event.request).then((cachedResponse) => {
+        if (cachedResponse) {
+          return cachedResponse;
+        }
+        return fetch(event.request).then((networkResponse) => {
           if (networkResponse && networkResponse.status === 200) {
+            const responseToCache = networkResponse.clone();
             caches.open(CACHE_NAME).then((cache) => {
-              cache.put(event.request, networkResponse);
+              cache.put(event.request, responseToCache);
             });
           }
-        }).catch(() => {
-          // Offline, ignore
-        });
-        return cachedResponse;
-      }
-
-      // Cache miss: fetch from network and store in cache
-      return fetch(event.request).then((networkResponse) => {
-        if (!networkResponse || networkResponse.status !== 200 || networkResponse.type !== 'basic') {
           return networkResponse;
-        }
-        const responseToCache = networkResponse.clone();
-        caches.open(CACHE_NAME).then((cache) => {
-          cache.put(event.request, responseToCache);
         });
+      })
+    );
+  } else {
+    // Network-first for app shell assets and navigation
+    event.respondWith(
+      fetch(event.request).then((networkResponse) => {
+        if (networkResponse && networkResponse.status === 200) {
+          const responseToCache = networkResponse.clone();
+          caches.open(CACHE_NAME).then((cache) => {
+            cache.put(event.request, responseToCache);
+          });
+        }
         return networkResponse;
       }).catch(() => {
-        if (event.request.mode === 'navigate') {
-          return caches.match('./index.html');
-        }
-      });
-    })
-  );
+        return caches.match(event.request).then((cachedResponse) => {
+          if (cachedResponse) {
+            return cachedResponse;
+          }
+          if (event.request.mode === 'navigate') {
+            return caches.match('./index.html');
+          }
+        });
+      })
+    );
+  }
 });

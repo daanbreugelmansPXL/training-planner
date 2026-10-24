@@ -119,9 +119,12 @@ function createSeedData() {
       id: sess.id,
       name: sess.title || sess.id,
       shortTitle: sess.shortTitle || sess.title,
+      subtitle: sess.subtitle || '',
       kind: sess.type,
       durationMin: parseInt(sess.duration, 10) || (sess.type === 'rest' ? 0 : 60),
-      durationDisplay: sess.duration || '60 min',
+      durationDisplay: sess.durationText || sess.duration || '60 min',
+      durationText: sess.durationText || sess.duration || '60 min',
+      durationNote: sess.durationNote || '',
       goal: sess.goal || '',
       when: sess.when || '',
       warmup: (sess.warmup || []).map(text => ({ name: text })),
@@ -132,6 +135,7 @@ function createSeedData() {
         repMin: ex.repMin || 8,
         repMax: ex.repMax || 12,
         repRange: ex.repRange || '8–12',
+        targetLabel: ex.targetLabel || '',
         restSec: ex.restSeconds || 90
       })),
       cooldown: (sess.cooldown || []).map(text => ({ name: text })),
@@ -328,6 +332,9 @@ function migrateV1toV2(v1Data) {
         isoWeek,
         dayIndex,
         sessionId,
+        status: oldLog.status || (oldLog.completed ? 'done' : 'planned'),
+        startedAt: oldLog.startedAt || (oldLog.completed ? oldLog.completedAt : null),
+        finishedAt: oldLog.finishedAt || (oldLog.completed ? oldLog.completedAt : null),
         completed: !!oldLog.completed,
         completedAt: oldLog.completedAt || null,
         templateSnapshot: null,
@@ -452,6 +459,40 @@ const StorageService = {
       if (v2Raw) {
         const parsed = JSON.parse(v2Raw);
         if (parsed && parsed.version === 2) {
+          // Normalize logs and templates for v2.1
+          let changed = false;
+          if (parsed.logs) {
+            Object.values(parsed.logs).forEach(log => {
+              if (!log.status) {
+                log.status = log.completed ? 'done' : 'planned';
+                log.startedAt = log.startedAt || (log.completed ? log.completedAt : null);
+                log.finishedAt = log.finishedAt || (log.completed ? log.completedAt : null);
+                changed = true;
+              }
+            });
+          }
+          const seed = createSeedData();
+          if (parsed.templates) {
+            Object.keys(seed.templates).forEach(tid => {
+              if (parsed.templates[tid]) {
+                if (!parsed.templates[tid].durationText && seed.templates[tid].durationText) {
+                  parsed.templates[tid].durationText = seed.templates[tid].durationText;
+                  changed = true;
+                }
+                if (!parsed.templates[tid].subtitle && seed.templates[tid].subtitle) {
+                  parsed.templates[tid].subtitle = seed.templates[tid].subtitle;
+                  changed = true;
+                }
+                if (seed.templates[tid].durationNote && !parsed.templates[tid].durationNote) {
+                  parsed.templates[tid].durationNote = seed.templates[tid].durationNote;
+                  changed = true;
+                }
+              }
+            });
+          }
+          if (changed) {
+            this.saveState(parsed);
+          }
           this._cache = parsed;
           return this._cache;
         }
@@ -491,6 +532,40 @@ const StorageService = {
       if (v2Raw) {
         const parsed = JSON.parse(v2Raw);
         if (parsed && parsed.version === 2) {
+          // Normalize logs and templates for v2.1
+          let changed = false;
+          if (parsed.logs) {
+            Object.values(parsed.logs).forEach(log => {
+              if (!log.status) {
+                log.status = log.completed ? 'done' : 'planned';
+                log.startedAt = log.startedAt || (log.completed ? log.completedAt : null);
+                log.finishedAt = log.finishedAt || (log.completed ? log.completedAt : null);
+                changed = true;
+              }
+            });
+          }
+          const seed = createSeedData();
+          if (parsed.templates) {
+            Object.keys(seed.templates).forEach(tid => {
+              if (parsed.templates[tid]) {
+                if (!parsed.templates[tid].durationText && seed.templates[tid].durationText) {
+                  parsed.templates[tid].durationText = seed.templates[tid].durationText;
+                  changed = true;
+                }
+                if (!parsed.templates[tid].subtitle && seed.templates[tid].subtitle) {
+                  parsed.templates[tid].subtitle = seed.templates[tid].subtitle;
+                  changed = true;
+                }
+                if (seed.templates[tid].durationNote && !parsed.templates[tid].durationNote) {
+                  parsed.templates[tid].durationNote = seed.templates[tid].durationNote;
+                  changed = true;
+                }
+              }
+            });
+          }
+          if (changed) {
+            this.saveState(parsed);
+          }
           this._cache = parsed;
           return this._cache;
         }

@@ -298,6 +298,9 @@
         isoWeek,
         dayIndex,
         sessionId,
+        status: 'planned',
+        startedAt: null,
+        finishedAt: null,
         completed: false,
         completedAt: null,
         templateSnapshot: JSON.parse(JSON.stringify(template)),
@@ -315,7 +318,11 @@
         miniMobilityDone: []
       };
     }
-    return state.data.logs[key];
+    const log = state.data.logs[key];
+    if (!log.status) {
+      log.status = log.completed ? 'done' : 'planned';
+    }
+    return log;
   }
 
   /* ==========================================================================
@@ -354,8 +361,9 @@
 
       const logKey = getSessionLogKey(state.currentIsoWeek, dayIdx, sessId);
       const log = state.data.logs[logKey];
-      const isDone = log && log.completed;
-      const isPartial = log && !log.completed && hasLogActivity(log);
+      const isDone = log && (log.completed || log.status === 'done');
+      const isSkipped = log && log.status === 'skipped';
+      const isPartial = log && !isDone && !isSkipped && (log.status === 'in_progress' || hasLogActivity(log));
 
       const pill = document.createElement('div');
       pill.className = `day-pill ${isSelected ? 'active' : ''} ${isToday ? 'is-today' : ''}`;
@@ -366,7 +374,7 @@
       pill.innerHTML = `
         <span class="day-pill-name">${DAY_SHORT[dayIdx]}</span>
         <span class="day-pill-num">${date.getDate()}</span>
-        <div class="day-pill-dot ${isDone ? 'done' : (isPartial ? 'partial' : '')}"></div>
+        <div class="day-pill-dot ${isDone ? 'done' : (isSkipped ? 'skipped' : (isPartial ? 'partial' : ''))}"></div>
       `;
 
       pill.addEventListener('click', () => {
